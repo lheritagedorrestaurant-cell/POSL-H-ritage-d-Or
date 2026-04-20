@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>L'Héritage d'Or | POS System</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@700&family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        :root { --gold: #c5a059; --ivory: #fcfcf9; --border: #ecece8; --text: #1a1a1a; --danger: #e63946; }
+        body { margin: 0; font-family: 'Plus Jakarta Sans', sans-serif; background: var(--ivory); height: 100vh; overflow: hidden; }
+        
+        /* UI Layout */
+        .top-bar { height: 60px; background: white; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; padding: 0 20px; }
+        .app-grid { display: grid; grid-template-columns: 250px 1fr 380px; height: calc(100vh - 60px); }
+        
+        /* Table Map */
+        .sidebar-left { border-right: 1px solid var(--border); overflow-y: auto; padding: 15px; }
+        .service-tabs { display: flex; gap: 5px; margin-bottom: 15px; }
+        .tab-btn { flex: 1; padding: 10px; border: 1px solid var(--border); background: white; cursor: pointer; font-weight: 800; border-radius: 8px; font-size: 0.7rem; }
+        .tab-btn.active { background: var(--gold); color: white; border: none; }
+        .table-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .table-btn { aspect-ratio: 1; border: 1px solid var(--border); border-radius: 12px; display: flex; flex-direction: column; align-items: center; justify-content: center; cursor: pointer; font-weight: 800; }
+        .table-btn.occupied { background: #555 !important; color: white !important; }
+        .table-btn.active { border: 3px solid var(--gold); color: var(--gold); }
+
+        /* Menu */
+        .menu-area { padding: 20px; overflow-y: auto; display: flex; flex-direction: column; }
+        .course-nav { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 20px; }
+        .course-btn { padding: 8px 16px; border-radius: 8px; border: 1px solid var(--border); background: white; font-weight: 800; cursor: pointer; white-space: nowrap; font-size: 0.78rem; font-family: 'Plus Jakarta Sans', sans-serif; transition: all 0.15s; }
+        .course-btn:hover { border-color: var(--gold); color: var(--gold); }
+        .course-btn.active { background: var(--gold); color: white; border-color: var(--gold); }
+        .item-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; }
+        .item-card { background: white; border: 1px solid var(--border); padding: 15px; border-radius: 15px; cursor: pointer; text-align: center; position: relative; transition: opacity 0.2s; }
+        .item-card.out-of-stock { opacity: 0.5; cursor: not-allowed; }
+        .stock-badge { position: absolute; top: 8px; right: 8px; font-size: 0.55rem; font-weight: 800; padding: 2px 6px; border-radius: 20px; }
+        .stock-ok { background: #e8f5e9; color: #2e7d32; }
+        .stock-low { background: #fff3e0; color: #e65100; }
+        .stock-out { background: #ffebee; color: #c62828; }
+
+        /* Order Sidebar */
+        .sidebar-right { border-left: 1px solid var(--border); display: flex; flex-direction: column; background: white; overflow: hidden; height: 100%; }
+        .cart-list { flex: 1; padding: 20px; overflow-y: auto; min-height: 0; }
+        .cart-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 0.9rem; align-items: center; gap: 8px; }
+        .cart-row-controls { display: flex; align-items: center; gap: 4px; }
+        .qty-btn { width: 22px; height: 22px; border-radius: 50%; border: 1px solid var(--border); background: var(--ivory); cursor: pointer; font-weight: 800; font-size: 0.8rem; display: flex; align-items: center; justify-content: center; }
+        .qty-btn:hover { background: var(--gold); color: white; border-color: var(--gold); }
+        .remove-btn { color: var(--danger); cursor: pointer; font-size: 0.75rem; font-weight: 800; border: none; background: none; padding: 0 2px; }
+
+        /* Stock Mgmt */
+        .stock-modal { background: white; width: 520px; max-height: 80vh; padding: 30px; border-radius: 20px; overflow-y: auto; }
+        .stock-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--border); font-size: 0.85rem; }
+        .stock-input { width: 60px; padding: 4px 8px; border: 1px solid var(--border); border-radius: 6px; text-align: center; font-weight: 800; }
+        
+        /* Overlay / Modal */
+        .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.8); display: none; align-items: center; justify-content: center; z-index: 1000; }
+        .receipt-card { background: white; width: 400px; padding: 30px; border-radius: 20px; font-family: 'Cinzel', serif; text-align: center; max-height: 85vh; overflow-y: auto; }
+
+        /* Login */
+        .login-field { display: block; width: 200px; padding: 10px; margin: 10px auto; text-align: center; border: 1px solid var(--border); border-radius: 8px; font-family: 'Plus Jakarta Sans'; font-size: 0.9rem; }
+
+        /* Payment */
+        .pay-method-btn { width:100%; padding:14px; margin-bottom:10px; border-radius:12px; border:2px solid var(--border); background:white; font-family:'Plus Jakarta Sans'; font-weight:800; font-size:0.95rem; cursor:pointer; display:flex; align-items:center; gap:12px; transition: all 0.15s; }
+        .pay-method-btn:hover { border-color:var(--gold); color:var(--gold); }
+        .pay-method-btn .pay-icon { width:36px; height:36px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:1.2rem; }
+        .pay-input { display:block; width:calc(100% - 24px); padding:12px; margin:8px auto; border:1px solid var(--border); border-radius:8px; font-family:'Plus Jakarta Sans'; font-size:1rem; letter-spacing:2px; }
+        .pay-input:focus { outline:none; border-color:var(--gold); }
+        .pin-dots { display:flex; justify-content:center; gap:12px; margin:16px 0; }
+        .pin-dot { width:14px; height:14px; border-radius:50%; background:var(--border); transition:background 0.15s; }
+        .pin-dot.filled { background:var(--gold); }
+        .numpad { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin:12px 0; }
+        .num-btn { padding:14px; border:1px solid var(--border); border-radius:10px; background:white; font-weight:800; font-size:1rem; cursor:pointer; font-family:'Plus Jakarta Sans'; transition:background 0.1s; }
+        .num-btn:hover { background:var(--ivory); }
+        .num-btn:active { background:var(--gold); color:white; }
+
+        @media print { body * { visibility: hidden; } #print-content, #print-content * { visibility: visible; } #print-content { position: absolute; top: 0; left: 0; width: 100%; } }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        #qr-spinner { animation: spin 1s linear infinite; border-radius: 50%; }
+    </style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="login-screen" style="position:fixed; inset:0; background:var(--ivory); z-index:2000; display:flex; align-items:center; justify-content:center;">
+    <div style="text-align:center; background:white; padding:40px; border-radius:20px; border:1px solid var(--border); min-width:300px;">
+        <h1 style="font-family:'Cinzel'; color:var(--gold); margin-bottom:5px;">L'Héritage d'Or</h1>
+        <p style="font-size:0.8rem; color:gray; margin-top:0;">Point of Sale System</p>
+        <hr style="border:1px solid var(--border); margin:20px 0;">
+        <input type="text" id="emp-name" placeholder="Employee Name" class="login-field">
+        <input type="date" id="shift-date" class="login-field">
+        <input type="password" id="pin" placeholder="Enter PIN" class="login-field">
+        <button onclick="login()" style="background:var(--gold); color:white; padding:12px 40px; border:none; border-radius:8px; font-weight:800; cursor:pointer; margin-top:10px; width:220px;">LOGIN</button>
+        <p id="login-error" style="color:var(--danger); font-size:0.8rem; margin-top:10px; display:none;">Invalid PIN or missing fields.</p>
+    </div>
+</div>
+
+<div class="top-bar">
+    <div style="font-family:'Cinzel'; font-size:1.5rem; color:var(--gold);">L'Héritage d'Or</div>
+    <div style="display:flex; align-items:center; gap:15px;">
+        <span id="topbar-info" style="font-size:0.75rem; color:gray;"></span>
+        <button onclick="showStockManager()" style="background:var(--text); color:white; border:none; padding:8px 15px; border-radius:5px; font-weight:800; cursor:pointer;">Stock</button>
+        <button onclick="showShiftReport()" style="background:var(--danger); color:white; border:none; padding:8px 15px; border-radius:5px; font-weight:800; cursor:pointer;">End Shift</button>
+    </div>
+</div>
+
+<div class="app-grid">
+    <aside class="sidebar-left">
+        <div class="service-tabs">
+            <button class="tab-btn active" onclick="setService('Dine-In')">Dine-In</button>
+            <button class="tab-btn" onclick="setService('Takeout')">Takeout</button>
+            <button class="tab-btn" onclick="setService('Delivery')">Delivery</button>
+        </div>
+        <div class="table-grid" id="table-map"></div>
+    </aside>
+
+    <main class="menu-area">
+        <div class="course-nav" id="cat-nav">
+            <button class="course-btn active" data-cat="Appetizer" onclick="loadMenu('Appetizer')">Appetizer</button>
+            <button class="course-btn" data-cat="Soups & Salads" onclick="loadMenu('Soups & Salads')">Soups & Salads</button>
+            <button class="course-btn" data-cat="Main Courses" onclick="loadMenu('Main Courses')">Main Courses</button>
+            <button class="course-btn" data-cat="Desserts" onclick="loadMenu('Desserts')">Desserts</button>
+            <button class="course-btn" data-cat="Champagne" onclick="loadMenu('Champagne')">Champagne</button>
+            <button class="course-btn" data-cat="Wines" onclick="loadMenu('Wines')">Wines</button>
+            <button class="course-btn" data-cat="Cocktails" onclick="loadMenu('Cocktails')">Cocktails</button>
+            <button class="course-btn" data-cat="Spirits" onclick="loadMenu('Spirits')">Spirits</button>
+            <button class="course-btn" data-cat="Non-Alcoholic" onclick="loadMenu('Non-Alcoholic')">Non-Alcoholic</button>
+        </div>
+        <div class="item-grid" id="item-grid"></div>
+    </main>
+
+    <aside class="sidebar-right">
+        <div class="cart-list" id="cart-content">
+            <h3 id="order-title">Select Table</h3>
+            <hr>
+            <div id="cart-items"></div>
+        </div>
+        <div style="padding:20px; border-top:1px solid var(--border); flex-shrink:0;">
+            <!-- ADDED: Discount selector -->
+            <div style="margin-bottom:12px;">
+                <div style="font-size:0.65rem; font-weight:800; text-transform:uppercase; color:gray; letter-spacing:1px; margin-bottom:6px;">Discount</div>
+                <div style="display:flex; gap:5px;">
+                    <button id="disc-btn-none"   onclick="setDiscount('none')"   style="flex:1;padding:7px 2px;border-radius:8px;border:1px solid var(--gold);background:var(--gold);color:white;font-weight:800;font-size:0.65rem;cursor:pointer;font-family:'Plus Jakarta Sans';">None</button>
+                    <button id="disc-btn-pwd"    onclick="setDiscount('pwd')"    style="flex:1;padding:7px 2px;border-radius:8px;border:1px solid #ecece8;background:white;color:#1a1a1a;font-weight:800;font-size:0.65rem;cursor:pointer;font-family:'Plus Jakarta Sans';">PWD 20%</button>
+                    <button id="disc-btn-senior" onclick="setDiscount('senior')" style="flex:1;padding:7px 2px;border-radius:8px;border:1px solid #ecece8;background:white;color:#1a1a1a;font-weight:800;font-size:0.65rem;cursor:pointer;font-family:'Plus Jakarta Sans';">Senior 20%</button>
+                </div>
+            </div>
+            <!-- ADDED: Tax breakdown -->
+            <div style="background:#fcfcf9;border-radius:8px;padding:9px 12px;margin-bottom:12px;font-family:'Plus Jakarta Sans';font-size:0.78rem;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:3px;color:#666;"><span>Subtotal</span><span id="cart-subtotal-disp">₱0</span></div>
+                <div id="disc-row-disp" style="display:none;justify-content:space-between;margin-bottom:3px;color:#e63946;"><span id="disc-label-disp">Discount</span><span id="disc-amt-disp">−₱0</span></div>
+                <div style="display:flex;justify-content:space-between;margin-bottom:3px;color:#666;"><span>Service Charge (10%)</span><span id="cart-svc-disp">₱0</span></div>
+                <div style="display:flex;justify-content:space-between;color:#666;"><span>VAT (12%)</span><span id="cart-vat-disp">₱0</span></div>
+            </div>
+            <!-- original total + button (unchanged labels, only id added to total span) -->
+            <div style="display:flex; justify-content:space-between; font-weight:800; margin-bottom:15px;">
+                <span>TOTAL</span><span id="cart-total">₱0</span>
+            </div>
+            <button onclick="showReceipt()" style="width:100%; background:var(--gold); color:white; border:none; padding:15px; border-radius:10px; font-weight:800; cursor:pointer;">CHECKOUT</button>
+        </div>
+    </aside>
+</div>
+
+<div id="overlay" class="overlay">
+    <div id="receipt-modal" class="receipt-card"></div>
+</div>
+
+<div id="print-content"></div>
+
+<script>
+    let serviceMode = 'Dine-In';
+    let activeTable = null;
+    let shiftSales = [];
+    let employeeName = '';
+    let shiftDate = '';
+    let currentCategory = 'Appetizer';
+    // --- ADDED: discount state ---
+    let discountType = 'none'; // 'none' | 'pwd' | 'senior'
+    function setDiscount(type) {
+        discountType = type;
+        ['none','pwd','senior'].forEach(t => {
+            const b = document.getElementById('disc-btn-' + t);
+            if (!b) return;
+            const on = t === type;
+            b.style.background = on ? 'var(--gold)' : 'white';
+            b.style.color = on ? 'white' : '#1a1a1a';
+            b.style.borderColor = on ? 'var(--gold)' : '#ecece8';
+        });
+        renderCart();
+    }
+    function calcTotals(subtotal) {
+        const disc = (discountType === 'pwd' || discountType === 'senior') ? 0.20 : 0;
+        const discAmt  = Math.round(subtotal * disc);
+        const afterDisc = subtotal - discAmt;
+        const svc  = Math.round(afterDisc * 0.10);
+        const vat  = Math.round((afterDisc + svc) * 0.12);
+        const total = afterDisc + svc + vat;
+        return { subtotal, discAmt, afterDisc, svc, vat, total };
+    }
+    // --- END ADDED ---
+
+    const tables = Array.from({length: 12}, (_, i) => ({ id: i + 1, status: 'vacant', cart: [] }));
+    let directOrderCart = [];
+
+    const inventory = [
+        // Appetizers
+        { n: "Foie Gras with Brioche & Fig Jam", p: 1550, c: "Appetizer", a: "Gluten, Dairy, Eggs", stock: 20 },
+        { n: "Seared Scallops with Lemon Butter", p: 980, c: "Appetizer", a: "Molluscs, Dairy", stock: 20 },
+        { n: "Steak Tartare", p: 850, c: "Appetizer", a: "Eggs, Mustard", stock: 20 },
+        { n: "Tuna Tartare with Avocado", p: 780, c: "Appetizer", a: "Fish", stock: 20 },
+        { n: "Escargots à la Bourguignonne", p: 750, c: "Appetizer", a: "Molluscs, Dairy", stock: 20 },
+        { n: "Smoked Salmon Roulade", p: 720, c: "Appetizer", a: "Fish, Dairy", stock: 20 },
+        { n: "Duck Rillettes on Toast", p: 650, c: "Appetizer", a: "Gluten", stock: 20 },
+        { n: "Pâté en Croûte", p: 620, c: "Appetizer", a: "Gluten, Eggs, Sulfites", stock: 20 },
+        { n: "Stuffed Mushrooms (Herbs & Cheese)", p: 580, c: "Appetizer", a: "Dairy", stock: 20 },
+        { n: "Cheese Soufflé (Mini)", p: 550, c: "Appetizer", a: "Dairy, Eggs, Gluten", stock: 20 },
+        { n: "Quiche Lorraine Bites", p: 480, c: "Appetizer", a: "Gluten, Dairy, Eggs, Pork", stock: 20 },
+
+        // Soups & Salads
+        { n: "Lobster & Grapefruit Salad", p: 1250, c: "Soups & Salads", a: "Crustaceans", stock: 15 },
+        { n: "Warm Asparagus & Truffle Salad", p: 880, c: "Soups & Salads", a: "Mustard, Sulfites", stock: 15 },
+        { n: "Bisque de Homard (Lobster Bisque)", p: 850, c: "Soups & Salads", a: "Crustaceans, Dairy, Gluten", stock: 15 },
+        { n: "Artichoke & Parmesan Salad", p: 720, c: "Soups & Salads", a: "Dairy", stock: 15 },
+        { n: "Frisée aux Lardons", p: 650, c: "Soups & Salads", a: "Eggs, Gluten, Mustard, Pork", stock: 15 },
+        { n: "French Onion Soup Gratinée", p: 580, c: "Soups & Salads", a: "Gluten, Dairy, Sulfites", stock: 15 },
+        { n: "Beetroot & Chèvre", p: 580, c: "Soups & Salads", a: "Dairy, Tree Nuts", stock: 15 },
+        { n: "Velouté de Champignons", p: 490, c: "Soups & Salads", a: "Dairy, Gluten", stock: 15 },
+        { n: "Potage Parmentier (Leek & Potato)", p: 450, c: "Soups & Salads", a: "Dairy", stock: 15 },
+
+        // Main Courses
+        { n: "Tournedos Rossini (Filet & Foie Gras)", p: 3850, c: "Main Courses", a: "Beef, Dairy, Sulfites", stock: 10 },
+        { n: "Beef Wellington (Per Slice)", p: 3200, c: "Main Courses", a: "Beef, Gluten, Eggs", stock: 10 },
+        { n: "Steak Frites (Premium Ribeye)", p: 2450, c: "Main Courses", a: "Beef, Dairy", stock: 10 },
+        { n: "Bouillabaisse (Seafood Stew)", p: 2100, c: "Main Courses", a: "Fish, Crustaceans, Gluten, Eggs", stock: 10 },
+        { n: "Sole Meunière", p: 1650, c: "Main Courses", a: "Fish, Dairy, Gluten", stock: 10 },
+        { n: "Cassoulet (Pork & Beans)", p: 1650, c: "Main Courses", a: "Pork, Sulfites", stock: 10 },
+        { n: "Lobster Ravioli with Bisque Sauce", p: 1450, c: "Main Courses", a: "Crustaceans, Gluten, Dairy, Eggs", stock: 10 },
+        { n: "Coq au Vin (Braised Chicken)", p: 1350, c: "Main Courses", a: "Poultry, Sulfites, Pork", stock: 10 },
+        { n: "Truffle Cream Fettuccine", p: 1100, c: "Main Courses", a: "Gluten, Dairy, Eggs", stock: 10 },
+        { n: "Seafood Linguine à la Provençale", p: 1050, c: "Main Courses", a: "Molluscs, Shellfish, Gluten", stock: 10 },
+        { n: "Tagliatelle with Duck Confit", p: 950, c: "Main Courses", a: "Gluten, Eggs", stock: 10 },
+        { n: "Ratatouille (Vegetarian)", p: 850, c: "Main Courses", a: "None Standard", stock: 10 },
+
+        // Desserts
+        { n: "Paris-Brest (Praline Choux)", p: 550, c: "Desserts", a: "Gluten, Dairy, Eggs, Tree Nuts", stock: 20 },
+        { n: "Crêpes Suzette", p: 520, c: "Desserts", a: "Gluten, Dairy, Eggs, Sulfites", stock: 20 },
+        { n: "Mille-Feuille", p: 480, c: "Desserts", a: "Gluten, Dairy, Eggs", stock: 20 },
+        { n: "Chocolate Mousse", p: 450, c: "Desserts", a: "Dairy, Eggs", stock: 20 },
+        { n: "Crème Brûlée", p: 420, c: "Desserts", a: "Dairy, Eggs", stock: 20 },
+        { n: "Macarons (Assorted 3pcs)", p: 380, c: "Desserts", a: "Tree Nuts, Eggs, Dairy", stock: 20 },
+
+        // Champagne
+        { n: "Veuve Clicquot Brut", p: 3500, c: "Champagne", a: "Sulfites", stock: 30 },
+        { n: "Moët & Chandon Impérial Brut", p: 3200, c: "Champagne", a: "Sulfites", stock: 30 },
+        { n: "Bollinger Special Cuvée", p: 3800, c: "Champagne", a: "Sulfites", stock: 20 },
+        { n: "Laurent-Perrier Cuvée Rosé", p: 4000, c: "Champagne", a: "Sulfites", stock: 20 },
+        { n: "Taittinger Brut Réserve", p: 3000, c: "Champagne", a: "Sulfites", stock: 20 },
+        { n: "Ruinart Blanc de Blancs", p: 4200, c: "Champagne", a: "Sulfites", stock: 15 },
+        { n: "Perrier-Jouët Grand Brut", p: 3500, c: "Champagne", a: "Sulfites", stock: 20 },
+        { n: "Krug Grande Cuvée", p: 5000, c: "Champagne", a: "Sulfites", stock: 10 },
+        { n: "Louis Roederer Cristal", p: 5000, c: "Champagne", a: "Sulfites", stock: 10 },
+        { n: "Pol Roger Brut Reserve", p: 3400, c: "Champagne", a: "Sulfites", stock: 20 },
+        { n: "Champagne Jacquart Mosaïque Brut", p: 2800, c: "Champagne", a: "Sulfites", stock: 20 },
+        { n: "Charles Heidsieck Brut Réserve", p: 3200, c: "Champagne", a: "Sulfites", stock: 20 },
+        { n: "Gosset Grand Rosé", p: 4000, c: "Champagne", a: "Sulfites", stock: 15 },
+        { n: "Dom Pérignon Vintage", p: 5000, c: "Champagne", a: "Sulfites", stock: 10 },
+        { n: "Kir Royal (Champagne + Crème de Cassis)", p: 900, c: "Champagne", a: "Sulfites, Alcohol", stock: 50 },
+
+        // Wines
+        { n: "Chablis (Burgundy)", p: 950, c: "Wines", a: "Sulfites", stock: 30 },
+        { n: "Sancerre (Loire Valley)", p: 1000, c: "Wines", a: "Sulfites", stock: 30 },
+        { n: "Pouilly-Fumé (Loire)", p: 950, c: "Wines", a: "Sulfites", stock: 30 },
+        { n: "Meursault (Burgundy, Chardonnay)", p: 1100, c: "Wines", a: "Sulfites", stock: 20 },
+        { n: "Muscadet (Loire)", p: 850, c: "Wines", a: "Sulfites", stock: 30 },
+        { n: "Bordeaux (Left Bank)", p: 1000, c: "Wines", a: "Sulfites", stock: 30 },
+        { n: "Saint-Émilion (Bordeaux)", p: 1100, c: "Wines", a: "Sulfites", stock: 25 },
+        { n: "Côtes du Rhône", p: 900, c: "Wines", a: "Sulfites", stock: 30 },
+        { n: "Burgundy Pinot Noir", p: 1050, c: "Wines", a: "Sulfites", stock: 25 },
+        { n: "Beaujolais Villages", p: 850, c: "Wines", a: "Sulfites", stock: 30 },
+        { n: "Provence Rosé", p: 750, c: "Wines", a: "Sulfites", stock: 30 },
+        { n: "Tavel Rosé (Rhône)", p: 850, c: "Wines", a: "Sulfites", stock: 25 },
+        { n: "Côtes de Provence Rosé", p: 800, c: "Wines", a: "Sulfites", stock: 25 },
+        { n: "Bandol Rosé", p: 950, c: "Wines", a: "Sulfites", stock: 20 },
+        { n: "Grenache Rosé", p: 750, c: "Wines", a: "Sulfites", stock: 25 },
+
+        // Cocktails
+        { n: "French 75", p: 850, c: "Cocktails", a: "Alcohol", stock: 50 },
+        { n: "French Martini", p: 800, c: "Cocktails", a: "Alcohol", stock: 50 },
+        { n: "Kir (White Wine + Crème de Cassis)", p: 400, c: "Cocktails", a: "Alcohol, Sulfites", stock: 50 },
+        { n: "Kir Royale", p: 900, c: "Cocktails", a: "Alcohol, Sulfites", stock: 50 },
+        { n: "Boulevardier", p: 850, c: "Cocktails", a: "Alcohol", stock: 50 },
+        { n: "Aperol Spritz", p: 750, c: "Cocktails", a: "Alcohol, Sulfites", stock: 50 },
+        { n: "Mimosa", p: 650, c: "Cocktails", a: "Alcohol, Sulfites", stock: 50 },
+        { n: "Sidecar", p: 900, c: "Cocktails", a: "Alcohol", stock: 50 },
+        { n: "Negroni", p: 850, c: "Cocktails", a: "Alcohol", stock: 50 },
+        { n: "Classic Daiquiri", p: 750, c: "Cocktails", a: "Alcohol", stock: 50 },
+        { n: "Old Fashioned", p: 850, c: "Cocktails", a: "Alcohol", stock: 50 },
+        { n: "Vesper Martini", p: 900, c: "Cocktails", a: "Alcohol", stock: 50 },
+        { n: "Sazerac", p: 950, c: "Cocktails", a: "Alcohol", stock: 50 },
+        { n: "French Mule", p: 700, c: "Cocktails", a: "Alcohol", stock: 50 },
+        { n: "Cognac Espresso Martini", p: 900, c: "Cocktails", a: "Alcohol", stock: 50 },
+
+        // Spirits
+        { n: "Cognac VS", p: 850, c: "Spirits", a: "Alcohol", stock: 50 },
+        { n: "Cognac VSOP", p: 1050, c: "Spirits", a: "Alcohol", stock: 50 },
+        { n: "Cognac XO", p: 1200, c: "Spirits", a: "Alcohol", stock: 30 },
+        { n: "Armagnac VS", p: 850, c: "Spirits", a: "Alcohol", stock: 30 },
+        { n: "Armagnac XO", p: 1100, c: "Spirits", a: "Alcohol", stock: 20 },
+        { n: "Pastis", p: 450, c: "Spirits", a: "Alcohol", stock: 50 },
+        { n: "Calvados", p: 700, c: "Spirits", a: "Alcohol", stock: 30 },
+        { n: "Chartreuse Green", p: 950, c: "Spirits", a: "Alcohol", stock: 20 },
+        { n: "Chartreuse Yellow", p: 950, c: "Spirits", a: "Alcohol", stock: 20 },
+        { n: "Grand Marnier", p: 800, c: "Spirits", a: "Alcohol", stock: 30 },
+        { n: "Cointreau", p: 700, c: "Spirits", a: "Alcohol", stock: 30 },
+        { n: "Bénédictine", p: 750, c: "Spirits", a: "Alcohol", stock: 20 },
+        { n: "Pernod", p: 450, c: "Spirits", a: "Alcohol", stock: 30 },
+        { n: "Fernet-Branca", p: 500, c: "Spirits", a: "Alcohol", stock: 30 },
+        { n: "Armagnac & Coffee Pairing", p: 900, c: "Spirits", a: "Alcohol", stock: 20 },
+
+        // Non-Alcoholic
+        { n: "Sparkling Mineral Water (Perrier)", p: 180, c: "Non-Alcoholic", a: "None", stock: 100 },
+        { n: "San Pellegrino Sparkling Fruit", p: 200, c: "Non-Alcoholic", a: "None", stock: 100 },
+        { n: "Virgin French 75", p: 350, c: "Non-Alcoholic", a: "None", stock: 50 },
+        { n: "Virgin Kir", p: 300, c: "Non-Alcoholic", a: "None", stock: 50 },
+        { n: "Cold Brew French Press Coffee", p: 250, c: "Non-Alcoholic", a: "None", stock: 50 },
+        { n: "Classic Espresso", p: 180, c: "Non-Alcoholic", a: "None", stock: 100 },
+        { n: "Café au Lait", p: 220, c: "Non-Alcoholic", a: "Dairy", stock: 100 },
+        { n: "Hot Chocolate (Valrhona)", p: 250, c: "Non-Alcoholic", a: "Dairy", stock: 50 },
+        { n: "Premium Herbal Tea", p: 200, c: "Non-Alcoholic", a: "None", stock: 100 },
+        { n: "Iced Earl Grey Tea", p: 220, c: "Non-Alcoholic", a: "None", stock: 50 },
+        { n: "Iced Green Tea with Lemon", p: 180, c: "Non-Alcoholic", a: "None", stock: 50 },
+        { n: "Freshly Squeezed Orange Juice", p: 250, c: "Non-Alcoholic", a: "None", stock: 50 },
+        { n: "Raspberry Lemonade Sparkler", p: 280, c: "Non-Alcoholic", a: "None", stock: 50 },
+        { n: "Cucumber & Mint Infused Water", p: 180, c: "Non-Alcoholic", a: "None", stock: 50 },
+        { n: "Apple & Pear Spritzer", p: 250, c: "Non-Alcoholic", a: "None", stock: 50 }
+    ];
+
+    function getStockLabel(stock) {
+        if (stock <= 0) return { label: 'OUT', cls: 'stock-out' };
+        if (stock <= 5) return { label: `LOW: ${stock}`, cls: 'stock-low' };
+        return { label: `${stock}`, cls: 'stock-ok' };
+    }
+
+    function login() {
+        const name = document.getElementById('emp-name').value.trim();
+        const date = document.getElementById('shift-date').value;
+        const pin = document.getElementById('pin').value;
+        if (!name || !date || pin !== '1C20252026') {
+            document.getElementById('login-error').style.display = 'block';
+            return;
+        }
+        employeeName = name;
+        shiftDate = date;
+        document.getElementById('topbar-info').innerText = `${employeeName} · ${new Date(date + 'T00:00:00').toLocaleDateString('en-PH', {month:'short', day:'numeric', year:'numeric'})}`;
+        document.getElementById('login-screen').style.display = 'none';
+        renderTables();
+        loadMenu('Appetizer');
+    }
+
+    function setService(mode) {
+        serviceMode = mode;
+        activeTable = null;
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.toggle('active', b.innerText === mode));
+        renderTables();
+        renderCart();
+    }
+
+    function renderTables() {
+        const map = document.getElementById('table-map');
+        if (serviceMode !== 'Dine-In') { map.innerHTML = "<p style='text-align:center; opacity:0.5;'>Direct Order Mode</p>"; return; }
+        map.innerHTML = tables.map(t => `
+            <div class="table-btn ${t.status} ${activeTable === t.id ? 'active' : ''}" onclick="selectTable(${t.id})">
+                <span>T-${t.id}</span>
+                <small>${t.status.toUpperCase()}</small>
+            </div>
+        `).join('');
+    }
+
+    function selectTable(id) {
+        const table = tables.find(t => t.id === id);
+        if (table.status === 'vacant') table.status = 'occupied';
+        activeTable = id;
+        renderTables();
+        renderCart();
+    }
+
+    function loadMenu(cat, btn) {
+        currentCategory = cat;
+        document.querySelectorAll('.course-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.cat === cat);
+        });
+        const grid = document.getElementById('item-grid');
+        grid.innerHTML = inventory.filter(i => i.c === cat).map(item => {
+            const { label, cls } = getStockLabel(item.stock);
+            const oos = item.stock <= 0;
+            return `
+                <div class="item-card ${oos ? 'out-of-stock' : ''}" onclick="${oos ? '' : `addToCart('${item.n.replace(/'/g,"\\'")}', ${item.p})`}">
+                    <span class="stock-badge ${cls}">${label}</span>
+                    <div style="font-weight:800; font-size:0.8rem; height:45px; overflow:hidden;">${item.n}</div>
+                    <div style="color:var(--gold); font-weight:800; margin:8px 0;">₱${item.p.toLocaleString()}</div>
+                    <div style="font-size:0.6rem; color:gray;">Allergens: ${item.a}</div>
+                    ${oos ? '<div style="font-size:0.65rem; color:var(--danger); font-weight:800; margin-top:4px;">OUT OF STOCK</div>' : ''}
+                </div>
+            `;
+        }).join('');
+    }
+
+    function addToCart(name, price) {
+        if (serviceMode === 'Dine-In' && !activeTable) return alert("Please select a table first");
+        const item = inventory.find(i => i.n === name);
+        if (!item || item.stock <= 0) return alert("This item is out of stock.");
+
+        let cart = serviceMode === 'Dine-In' ? tables.find(t => t.id === activeTable).cart : directOrderCart;
+        const existing = cart.find(i => i.n === name);
+
+        // Check cart qty vs stock
+        const inCart = existing ? existing.q : 0;
+        if (inCart >= item.stock) return alert(`Only ${item.stock} of "${name}" available.`);
+
+        if (existing) existing.q++;
+        else cart.push({ n: name, p: price, q: 1 });
+        renderCart();
+    }
+
+    function changeQty(name, delta) {
+        let cart = serviceMode === 'Dine-In' ? (activeTable ? tables.find(t => t.id === activeTable).cart : []) : directOrderCart;
+        const item = cart.find(i => i.n === name);
+        if (!item) return;
+        if (delta > 0) {
+            const invItem = inventory.find(i => i.n === name);
+            if (item.q >= invItem.stock) return alert(`Only ${invItem.stock} available.`);
+            item.q++;
+        } else {
+            item.q--;
+            if (item.q <= 0) {
+                const idx = cart.findIndex(i => i.n === name);
+                cart.splice(idx, 1);
+            }
+        }
+        renderCart();
+    }
+
+    function removeFromCart(name) {
+        let cart = serviceMode === 'Dine-In' ? (activeTable ? tables.find(t => t.id === activeTable).cart : []) : directOrderCart;
+        const idx = cart.findIndex(i => i.n === name);
+        if (idx !== -1) cart.splice(idx, 1);
+        renderCart();
+    }
+
+    function renderCart() {
+        const container = document.getElementById('cart-items');
+        let cart = serviceMode === 'Dine-In' ? (activeTable ? tables.find(t => t.id === activeTable).cart : []) : directOrderCart;
+        document.getElementById('order-title').innerText = serviceMode === 'Dine-In' ? `Table ${activeTable || '--'}` : serviceMode;
+
+        container.innerHTML = cart.map(i => `
+            <div class="cart-row">
+                <span style="flex:1; font-size:0.8rem;">${i.n}</span>
+                <div class="cart-row-controls">
+                    <button class="qty-btn" onclick="changeQty('${i.n.replace(/'/g,"\\'")}', -1)">−</button>
+                    <span style="font-weight:800; min-width:18px; text-align:center;">${i.q}</span>
+                    <button class="qty-btn" onclick="changeQty('${i.n.replace(/'/g,"\\'")}', 1)">+</button>
+                    <button class="remove-btn" onclick="removeFromCart('${i.n.replace(/'/g,"\\'")}')">✕</button>
+                </div>
+                <span style="font-weight:800; min-width:70px; text-align:right; font-size:0.85rem;">₱${(i.p * i.q).toLocaleString()}</span>
+            </div>
+        `).join('');
+
+        const total = cart.reduce((sum, i) => sum + (i.p * i.q), 0);
+        document.getElementById('cart-total').innerText = `₱${total.toLocaleString()}`;
+        // --- ADDED: update breakdown ---
+        const t = calcTotals(total);
+        document.getElementById('cart-total').innerText = `₱${t.total.toLocaleString()}`;
+        document.getElementById('cart-subtotal-disp').textContent = '₱' + t.subtotal.toLocaleString();
+        document.getElementById('cart-svc-disp').textContent      = '₱' + t.svc.toLocaleString();
+        document.getElementById('cart-vat-disp').textContent      = '₱' + t.vat.toLocaleString();
+        const dr = document.getElementById('disc-row-disp');
+        if (t.discAmt > 0) {
+            dr.style.display = 'flex';
+            document.getElementById('disc-label-disp').textContent = (discountType === 'pwd' ? 'PWD' : 'Senior Citizen') + ' Discount (20%)';
+            document.getElementById('disc-amt-disp').textContent   = '−₱' + t.discAmt.toLocaleString();
+        } else { dr.style.display = 'none'; }
+        // --- END ADDED ---
+    }
+
+    function getCart() {
+        return serviceMode === 'Dine-In' ? (activeTable ? tables.find(t => t.id === activeTable).cart : []) : directOrderCart;
+    }
+
+    function getOrderLabel() {
+        return serviceMode === 'Dine-In' ? 'Table ' + activeTable : serviceMode;
+    }
+
+    function orderSummaryHTML(cart, total) {
+        // --- ADDED: compute full breakdown ---
+        const t = calcTotals(total);
+        const discLabel = discountType === 'pwd' ? 'PWD Discount (20%)' : discountType === 'senior' ? 'Senior Citizen Discount (20%)' : '';
+        const breakdownHTML = `
+            <div style="font-family:'Plus Jakarta Sans';font-size:0.8rem;background:#fcfcf9;padding:9px 12px;border-radius:8px;margin-bottom:14px;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:3px;color:#666;"><span>Subtotal</span><span>₱${t.subtotal.toLocaleString()}</span></div>
+                ${t.discAmt > 0 ? `<div style="display:flex;justify-content:space-between;margin-bottom:3px;color:#e63946;"><span>${discLabel}</span><span>−₱${t.discAmt.toLocaleString()}</span></div>` : ''}
+                <div style="display:flex;justify-content:space-between;margin-bottom:3px;color:#666;"><span>Service Charge (10%)</span><span>₱${t.svc.toLocaleString()}</span></div>
+                <div style="display:flex;justify-content:space-between;color:#666;"><span>VAT (12%)</span><span>₱${t.vat.toLocaleString()}</span></div>
+            </div>`;
+        // --- END ADDED ---
+        return `
+            <div style="text-align:left; margin:14px 0; font-family:'Plus Jakarta Sans'; max-height:200px; overflow-y:auto;">
+                ${cart.map(i => `<div style="display:flex; justify-content:space-between; font-size:0.85rem; margin-bottom:5px; color:#333;"><span>${i.q}× ${i.n}</span><span style="font-weight:800;">₱${(i.p*i.q).toLocaleString()}</span></div>`).join('')}
+            </div>
+            ${breakdownHTML}
+            <div style="display:flex; justify-content:space-between; font-family:'Cinzel'; font-size:1.1rem; font-weight:700; background:var(--ivory); padding:10px 12px; border-radius:10px; margin-bottom:16px;">
+                <span>TOTAL</span><span style="color:var(--gold);">₱${t.total.toLocaleString()}</span>
+            </div>`;
+    }
+
+    function showReceipt() {
+        const cart = getCart();
+        if (!cart || cart.length === 0) return alert("Cart is empty.");
+        const total = cart.reduce((sum, i) => sum + (i.p * i.q), 0);
+        // --- ADDED ---
+        const finalTotal = calcTotals(total).total;
+        // --- END ADDED ---
+        const modal = document.getElementById('receipt-modal');
+        modal.className = 'receipt-card';
+        modal.innerHTML = `
+            <h2 style="font-family:'Cinzel'; margin-bottom:2px;">L'AZURE</h2>
+            <p style="font-size:0.8rem; color:gray; margin:0 0 4px;">${getOrderLabel()} · ${employeeName} · ${shiftDate}</p>
+            <hr>
+            ${orderSummaryHTML(cart, total)}
+            <p style="font-weight:800; font-size:0.85rem; margin-bottom:10px; text-align:left;">Select Payment Method:</p>
+            <button class="pay-method-btn" onclick="showCashPayment(${finalTotal})">
+                <div class="pay-icon" style="background:#e8f5e9;">💵</div>
+                <span>Cash</span>
+            </button>
+            <button class="pay-method-btn" onclick="showCardPayment(${finalTotal})">
+                <div class="pay-icon" style="background:#e3f2fd;">💳</div>
+                <span>Credit / Debit Card</span>
+            </button>
+            <button class="pay-method-btn" onclick="showWalletPayment(${finalTotal})">
+                <div class="pay-icon" style="background:#f3e5f5;">📱</div>
+                <span>Online Wallet (QR)</span>
+            </button>
+            <button onclick="closeOverlay()" style="background:none; border:none; margin-top:6px; color:gray; cursor:pointer; font-family:'Plus Jakarta Sans'; font-size:0.85rem;">Cancel</button>
+        `;
+        document.getElementById('overlay').style.display = 'flex';
+    }
+
+    // ── CASH PAYMENT ──────────────────────────────────────────────
+    function showCashPayment(total) {
+        let cashEntered = '';
+        const modal = document.getElementById('receipt-modal');
+        modal.innerHTML = `
+            <h2 style="font-family:'Cinzel'; font-size:1.1rem;">CASH PAYMENT</h2>
+            <p style="color:var(--gold); font-family:'Cinzel'; font-size:1.3rem; font-weight:700; margin:6px 0;">₱${total.toLocaleString()}</p>
+            <hr>
+            <p style="font-size:0.8rem; font-weight:800; text-align:left; margin-bottom:6px;">Amount Tendered:</p>
+            <div id="cash-display" style="font-size:1.6rem; font-weight:800; text-align:center; background:var(--ivory); border-radius:10px; padding:14px; margin-bottom:10px; letter-spacing:2px; min-height:52px;">₱0</div>
+            <div id="change-display" style="font-size:0.85rem; text-align:center; color:gray; margin-bottom:10px; min-height:20px;"></div>
+            <div class="numpad">
+                ${[1,2,3,4,5,6,7,8,9,'000',0,'⌫'].map(k => `<button class="num-btn" onclick="cashKey('${k}',${total})">${k}</button>`).join('')}
+            </div>
+            <button id="cash-confirm-btn" onclick="confirmCash(${total})" disabled style="width:100%; background:#ccc; color:white; border:none; padding:14px; border-radius:10px; font-weight:800; cursor:not-allowed; font-family:'Plus Jakarta Sans'; font-size:0.95rem;">CONFIRM PAYMENT</button>
+            <button onclick="showReceipt()" style="background:none; border:none; margin-top:8px; color:gray; cursor:pointer; font-family:'Plus Jakarta Sans'; font-size:0.85rem;">← Back</button>
+        `;
+        document.getElementById('overlay').style.display = 'flex';
+        window._cashVal = 0;
+    }
+
+    function cashKey(k, total) {
+        if (k === '⌫') {
+            window._cashVal = Math.floor(window._cashVal / 10);
+        } else {
+            const appended = parseInt(String(window._cashVal) + String(k));
+            if (appended > 999999) return;
+            window._cashVal = appended;
+        }
+        const display = document.getElementById('cash-display');
+        const changeDisplay = document.getElementById('change-display');
+        const btn = document.getElementById('cash-confirm-btn');
+        display.textContent = '₱' + window._cashVal.toLocaleString();
+        if (window._cashVal >= total) {
+            const change = window._cashVal - total;
+            changeDisplay.innerHTML = `<span style="color:#2e7d32; font-weight:800;">Change: ₱${change.toLocaleString()}</span>`;
+            btn.disabled = false;
+            btn.style.background = 'var(--gold)';
+            btn.style.cursor = 'pointer';
+        } else {
+            const short = total - window._cashVal;
+            changeDisplay.innerHTML = `<span style="color:var(--danger);">Short by: ₱${short.toLocaleString()}</span>`;
+            btn.disabled = true;
+            btn.style.background = '#ccc';
+            btn.style.cursor = 'not-allowed';
+        }
+    }
+
+    function confirmCash(total) {
+        const change = window._cashVal - total;
+        showPaymentSuccess('Cash', total, `Change: ₱${change.toLocaleString()}`);
+    }
+
+    // ── CARD PAYMENT ──────────────────────────────────────────────
+    function showCardPayment(total) {
+        const modal = document.getElementById('receipt-modal');
+        modal.innerHTML = `
+            <h2 style="font-family:'Cinzel'; font-size:1.1rem;">CARD PAYMENT</h2>
+            <p style="color:var(--gold); font-family:'Cinzel'; font-size:1.3rem; font-weight:700; margin:6px 0;">₱${total.toLocaleString()}</p>
+            <hr>
+            <div style="background:linear-gradient(135deg,#1a1a2e,#16213e); border-radius:16px; padding:22px; margin:14px 0; color:white; text-align:left; position:relative; min-height:100px;">
+                <div style="font-size:0.65rem; opacity:0.6; letter-spacing:2px;">CARD NUMBER</div>
+                <div id="card-display" style="font-size:1.2rem; font-weight:800; letter-spacing:4px; margin:8px 0;">•••• •••• •••• ••••</div>
+                <div style="font-size:0.65rem; opacity:0.6; letter-spacing:2px; margin-top:8px;">POS Operator</div>
+                <div style="font-size:0.8rem; font-weight:800; letter-spacing:2px;">${employeeName.toUpperCase() || 'GUEST'}</div>
+                <div style="position:absolute; right:22px; top:22px; width:36px; height:36px; border-radius:50%; background:rgba(255,255,255,0.15); display:flex; align-items:center; justify-content:center; font-size:1.4rem;">💳</div>
+            </div>
+            <input id="card-num" class="pay-input" type="text" maxlength="19" placeholder="Card Number" oninput="formatCard(this)" style="text-align:center;">
+            <p style="font-size:0.8rem; font-weight:800; text-align:left; margin:10px 0 4px;">Card PIN:</p>
+            <div class="pin-dots" id="pin-dots">
+                ${[0,1,2,3].map(i => `<div class="pin-dot" id="pd-${i}"></div>`).join('')}
+            </div>
+            <div class="numpad">
+                ${[1,2,3,4,5,6,7,8,9,'',0,'⌫'].map(k => k === '' ? `<div></div>` : `<button class="num-btn" onclick="cardPinKey('${k}')">${k}</button>`).join('')}
+            </div>
+            <button id="card-confirm-btn" onclick="confirmCard(${total})" disabled style="width:100%; background:#ccc; color:white; border:none; padding:14px; border-radius:10px; font-weight:800; cursor:not-allowed; font-family:'Plus Jakarta Sans'; font-size:0.95rem;">PROCESS PAYMENT</button>
+            <button onclick="showReceipt()" style="background:none; border:none; margin-top:8px; color:gray; cursor:pointer; font-family:'Plus Jakarta Sans'; font-size:0.85rem;">← Back</button>
+        `;
+        document.getElementById('overlay').style.display = 'flex';
+        window._cardPin = '';
+    }
+
+    function formatCard(input) {
+        let v = input.value.replace(/\D/g, '').substring(0, 16);
+        input.value = v.replace(/(.{4})/g, '$1 ').trim();
+        const display = document.getElementById('card-display');
+        const parts = v.padEnd(16, '•').replace(/(.{4})/g, '$1 ').trim();
+        display.textContent = parts;
+        validateCard();
+    }
+
+    function cardPinKey(k) {
+        if (k === '⌫') {
+            window._cardPin = window._cardPin.slice(0, -1);
+        } else if (window._cardPin.length < 4) {
+            window._cardPin += k;
+        }
+        for (let i = 0; i < 4; i++) {
+            document.getElementById('pd-' + i).classList.toggle('filled', i < window._cardPin.length);
+        }
+        validateCard();
+    }
+
+    function validateCard() {
+        const cardNum = (document.getElementById('card-num').value || '').replace(/\s/g, '');
+        const btn = document.getElementById('card-confirm-btn');
+        const ready = cardNum.length === 16 && window._cardPin.length === 4;
+        btn.disabled = !ready;
+        btn.style.background = ready ? 'var(--gold)' : '#ccc';
+        btn.style.cursor = ready ? 'pointer' : 'not-allowed';
+    }
+
+    function confirmCard(total) {
+        const cardNum = document.getElementById('card-num').value;
+        const masked = '•••• •••• •••• ' + cardNum.replace(/\s/g,'').slice(-4);
+        showPaymentSuccess('Card', total, `Card: ${masked}`);
+    }
+
+    // ── WALLET / QR PAYMENT ───────────────────────────────────────
+    function showWalletPayment(total) {
+        const modal = document.getElementById('receipt-modal');
+        const ref = 'LAZR-' + Date.now().toString().slice(-8);
+        const qrData = `L'AZURE PAYMENT | Amount: PHP ${total} | Ref: ${ref} | Date: ${shiftDate}`;
+        modal.innerHTML = `
+            <h2 style="font-family:'Cinzel'; font-size:1.1rem;">ONLINE WALLET</h2>
+            <p style="color:var(--gold); font-family:'Cinzel'; font-size:1.3rem; font-weight:700; margin:6px 0;">₱${total.toLocaleString()}</p>
+            <hr>
+            <p style="font-size:0.8rem; color:gray; margin:8px 0;">Scan with GCash, Maya, or any QR-enabled wallet</p>
+            <div id="qr-container" style="display:flex; justify-content:center; margin:16px 0; padding:16px; background:white; border:2px solid var(--border); border-radius:16px;"></div>
+            <div style="background:var(--ivory); border-radius:10px; padding:10px; margin-bottom:14px;">
+                <div style="font-size:0.7rem; color:gray;">REFERENCE NO.</div>
+                <div style="font-weight:800; font-size:0.95rem; letter-spacing:2px;">${ref}</div>
+            </div>
+            <div id="qr-status" style="display:flex; align-items:center; justify-content:center; gap:8px; font-size:0.85rem; color:gray; margin-bottom:14px;">
+                <span id="qr-spinner" style="display:inline-block; width:14px; height:14px; border:2px solid var(--border); border-top-color:var(--gold); border-radius:50; animation:spin 1s linear infinite;"></span>
+                Awaiting payment...
+            </div>
+            <button onclick="simulateWalletConfirm(${total},'${ref}')" style="width:100%; background:var(--gold); color:white; border:none; padding:14px; border-radius:10px; font-weight:800; cursor:pointer; font-family:'Plus Jakarta Sans'; font-size:0.95rem;">SIMULATE PAYMENT RECEIVED</button>
+            <button onclick="showReceipt()" style="background:none; border:none; margin-top:8px; color:gray; cursor:pointer; font-family:'Plus Jakarta Sans'; font-size:0.85rem;">← Back</button>
+        `;
+        document.getElementById('overlay').style.display = 'flex';
+        // Generate QR after DOM is ready
+        setTimeout(() => {
+            try {
+                new QRCode(document.getElementById('qr-container'), {
+                    text: qrData, width: 180, height: 180,
+                    colorDark: '#1a1a1a', colorLight: '#ffffff',
+                    correctLevel: QRCode.CorrectLevel.M
+                });
+            } catch(e) {
+                document.getElementById('qr-container').innerHTML = '<p style="color:gray;font-size:0.8rem;">QR unavailable offline</p>';
+            }
+        }, 50);
+    }
+
+    function simulateWalletConfirm(total, ref) {
+        showPaymentSuccess('Online Wallet', total, `Ref: ${ref}`);
+    }
+
+    // ── SUCCESS + PRINT ───────────────────────────────────────────
+    function showPaymentSuccess(method, total, detail) {
+        const cart = getCart();
+        const modal = document.getElementById('receipt-modal');
+        const now = new Date().toLocaleString('en-PH');
+        // --- ADDED: rebuild breakdown for receipt ---
+        const subtotal = cart.reduce((sum, i) => sum + (i.p * i.q), 0);
+        const t = calcTotals(subtotal);
+        const discLabel = discountType === 'pwd' ? 'PWD Discount (20%)' : discountType === 'senior' ? 'Senior Citizen Discount (20%)' : '';
+        const receiptBreakdown = `
+            <div style="font-family:'Plus Jakarta Sans';font-size:0.8rem;text-align:left;margin:6px 0 10px;">
+                <div style="display:flex;justify-content:space-between;margin-bottom:3px;color:#555;"><span>Subtotal</span><span>₱${t.subtotal.toLocaleString()}</span></div>
+                ${t.discAmt > 0 ? `<div style="display:flex;justify-content:space-between;margin-bottom:3px;color:#e63946;"><span>${discLabel}</span><span>−₱${t.discAmt.toLocaleString()}</span></div>` : ''}
+                <div style="display:flex;justify-content:space-between;margin-bottom:3px;color:#555;"><span>Service Charge (10%)</span><span>₱${t.svc.toLocaleString()}</span></div>
+                <div style="display:flex;justify-content:space-between;color:#555;"><span>VAT (12%)</span><span>₱${t.vat.toLocaleString()}</span></div>
+            </div>`;
+        // --- END ADDED ---
+        const receiptHTML = `
+            <div style="text-align:center;">
+                <div style="font-size:2.5rem; margin-bottom:8px;">✅</div>
+                <h2 style="font-family:'Cinzel'; margin:0 0 4px;">PAYMENT RECEIVED</h2>
+                <p style="color:gray; font-size:0.8rem; margin:0;">${method}</p>
+            </div>
+            <hr>
+            <h3 style="font-family:'Cinzel'; color:var(--gold); text-align:center;">L'AZURE</h3>
+            <p style="font-size:0.75rem; color:gray; text-align:center; margin:0 0 12px;">${getOrderLabel()} · ${employeeName} · ${now}</p>
+            <div style="text-align:left; font-family:'Plus Jakarta Sans'; font-size:0.85rem; margin-bottom:10px;">
+                ${cart.map(i => `<div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>${i.q}× ${i.n}</span><span style="font-weight:800;">₱${(i.p*i.q).toLocaleString()}</span></div>`).join('')}
+            </div>
+            <hr>
+            ${receiptBreakdown}
+            <hr>
+            <div style="display:flex; justify-content:space-between; font-family:'Cinzel'; font-size:1rem; font-weight:700; margin:8px 0;">
+                <span>TOTAL</span><span style="color:var(--gold);">₱${total.toLocaleString()}</span>
+            </div>
+            <div style="font-size:0.8rem; color:#2e7d32; font-weight:800; text-align:center; margin:6px 0;">${detail}</div>
+            <div style="font-size:0.75rem; color:gray; text-align:center; margin-bottom:16px;">Payment via ${method}</div>
+            <button onclick="finalizeAndPrint()" style="width:100%; background:black; color:white; border:none; padding:14px; border-radius:10px; font-weight:800; cursor:pointer; font-family:'Plus Jakarta Sans';">🖨 PRINT RECEIPT</button>
+            <button onclick="finalizeAndSkip()" style="width:100%; background:var(--ivory); color:var(--text); border:1px solid var(--border); padding:12px; border-radius:10px; font-weight:800; cursor:pointer; font-family:'Plus Jakarta Sans'; margin-top:8px;">DONE (No Print)</button>
+        `;
+        modal.innerHTML = receiptHTML;
+        window._pendingReceiptHTML = receiptHTML;
+        window._pendingTotal = total;
+        window._pendingMethod = method;
+    }
+
+    function finalizeAndPrint() {
+        document.getElementById('print-content').innerHTML = document.getElementById('receipt-modal').innerHTML;
+        window.print();
+        finalizeOrder();
+    }
+
+    function finalizeAndSkip() { finalizeOrder(); }
+
+    function finalizeOrder() {
+        const cart = serviceMode === 'Dine-In' ? tables.find(t => t.id === activeTable).cart : directOrderCart;
+        cart.forEach(item => {
+            const inv = inventory.find(i => i.n === item.n);
+            if (inv) inv.stock = Math.max(0, inv.stock - item.q);
+            for (let k = 0; k < item.q; k++) shiftSales.push({ n: item.n, p: item.p, method: window._pendingMethod });
+        });
+        if (serviceMode === 'Dine-In') {
+            const table = tables.find(t => t.id === activeTable);
+            table.status = 'vacant';
+            table.cart = [];
+        } else { directOrderCart = []; }
+        closeOverlay();
+        activeTable = null;
+        renderTables();
+        renderCart();
+        loadMenu(currentCategory);
+    }
+
+    function processPayment() { finalizeOrder(); }
+
+    function closeOverlay() { document.getElementById('overlay').style.display = 'none'; }
+
+    function showStockManager() {
+        const modal = document.getElementById('receipt-modal');
+        modal.className = 'stock-modal';
+        modal.innerHTML = `
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+                <h2 style="font-family:'Cinzel'; margin:0; font-size:1.1rem;">STOCK MANAGER</h2>
+                <button onclick="closeOverlay(); document.getElementById('receipt-modal').className='receipt-card';" style="border:none; background:none; font-size:1.2rem; cursor:pointer;">✕</button>
+            </div>
+            ${['Appetizer','Soups & Salads','Main Courses','Desserts','Champagne','Wines','Cocktails','Spirits','Non-Alcoholic'].map(cat => `
+                <div style="margin-bottom:15px;">
+                    <div style="font-weight:800; font-size:0.75rem; text-transform:uppercase; color:var(--gold); margin-bottom:5px;">${cat}</div>
+                    ${inventory.filter(i => i.c === cat).map(item => {
+                        const { label, cls } = getStockLabel(item.stock);
+                        return `<div class="stock-row">
+                            <span style="flex:1;">${item.n}</span>
+                            <span class="stock-badge ${cls}" style="margin-right:10px;">${label}</span>
+                            <input type="number" class="stock-input" value="${item.stock}" min="0" onchange="updateStock('${item.n.replace(/'/g,"\\'")}', this.value)">
+                        </div>`;
+                    }).join('')}
+                </div>
+            `).join('')}
+            <button onclick="closeOverlay(); document.getElementById('receipt-modal').className='receipt-card'; loadMenu(currentCategory);" style="width:100%; background:var(--gold); color:white; border:none; padding:12px; border-radius:10px; font-weight:800; cursor:pointer; margin-top:10px;">SAVE & CLOSE</button>
+        `;
+        document.getElementById('overlay').style.display = 'flex';
+    }
+
+    function updateStock(name, val) {
+        const item = inventory.find(i => i.n === name);
+        if (item) item.stock = Math.max(0, parseInt(val) || 0);
+    }
+
+    function showShiftReport() {
+        const total = shiftSales.reduce((sum, i) => sum + i.p, 0);
+        const itemSummary = shiftSales.reduce((acc, curr) => {
+            acc[curr.n] = acc[curr.n] || { qty: 0, rev: 0 };
+            acc[curr.n].qty++;
+            acc[curr.n].rev += curr.p;
+            return acc;
+        }, {});
+        const byMethod = shiftSales.reduce((acc, i) => {
+            const m = i.method || 'Unknown';
+            acc[m] = (acc[m] || 0) + i.p;
+            return acc;
+        }, {});
+
+        const reportHTML = `
+            <h2 style="font-family:'Cinzel';">SHIFT SALES REPORT</h2>
+            <p style="font-size:0.85rem;">${employeeName} · ${shiftDate}</p>
+            <p style="font-size:0.75rem; color:gray;">${new Date().toLocaleString()}</p>
+            <hr>
+            <div style="text-align:left; margin:12px 0; font-family:'Plus Jakarta Sans'; font-size:0.85rem;">
+                <strong style="font-size:0.75rem; text-transform:uppercase; color:var(--gold);">Payment Breakdown</strong><br><br>
+                ${Object.keys(byMethod).length === 0 ? '<em style="color:gray;">No sales recorded.</em>' :
+                    Object.entries(byMethod).map(([m, v]) =>
+                        `<div style="display:flex; justify-content:space-between; margin-bottom:4px;"><span>${m}</span><span style="font-weight:800;">₱${v.toLocaleString()}</span></div>`
+                    ).join('')
+                }
+            </div>
+            <hr>
+            <div style="text-align:left; margin:12px 0; font-family:'Plus Jakarta Sans'; font-size:0.85rem;">
+                <strong style="font-size:0.75rem; text-transform:uppercase; color:var(--gold);">Items Sold</strong><br><br>
+                ${Object.keys(itemSummary).length === 0 ? '<em style="color:gray;">No sales recorded.</em>' :
+                    Object.entries(itemSummary).map(([name, data]) =>
+                        `<div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span>${data.qty}× ${name}</span><span style="font-weight:800;">₱${data.rev.toLocaleString()}</span></div>`
+                    ).join('')
+                }
+            </div>
+            <hr>
+            <h3 style="font-family:'Cinzel';">GROSS SALES: ₱${total.toLocaleString()}</h3>
+            <button onclick="printShiftReport()" style="background:black; color:white; width:100%; padding:15px; border:none; border-radius:10px; cursor:pointer; font-weight:800; font-family:'Plus Jakarta Sans';">PRINT & END SHIFT</button>
+            <button onclick="closeOverlay()" style="background:none; border:none; margin-top:10px; color:gray; cursor:pointer; font-family:'Plus Jakarta Sans';">Close</button>
+        `;
+        document.getElementById('receipt-modal').className = 'receipt-card';
+        document.getElementById('receipt-modal').innerHTML = reportHTML;
+        document.getElementById('overlay').style.display = 'flex';
+    }
+
+    function printShiftReport() {
+        document.getElementById('print-content').innerHTML = document.getElementById('receipt-modal').innerHTML;
+        window.print();
+        location.reload();
+    }
+
+    // Init date field to today
+    document.getElementById('shift-date').value = new Date().toISOString().split('T')[0];
+</script>
+</body>
+</html>
